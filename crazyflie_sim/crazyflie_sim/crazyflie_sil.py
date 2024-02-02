@@ -95,6 +95,9 @@ class CrazyflieSIL:
         elif controller_name == 'brescianini':
             firm.controllerBrescianiniInit()
             self.controller = firm.controllerBrescianini
+        elif controller_name =='indi':
+            firm.controllerINDIInit()
+            self.controller = firm.controllerINDI
         else:
             raise ValueError('Unknown controller {}'.format(controller_name))
 
