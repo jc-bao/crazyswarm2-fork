@@ -462,7 +462,10 @@ class Crazyflie:
         controller_params=None,
         enable_logging=True,
         mode="mppi",
+        sim = False,
     ) -> None:
+        self.sim = sim
+
         # control parameters
         self.timestep = 0
         self.dt = 0.02
@@ -537,7 +540,7 @@ class Crazyflie:
         pos, quat = self.get_drone_state()
         self.pos_hist[-1] = pos
         self.quat_hist[-1] = quat
-        self.pos_traj, self.vel_traj, self.acc_traj = generate_traj(pos, self.dt, mode="x")
+        self.pos_traj, self.vel_traj, self.acc_traj = generate_traj(pos, self.dt, mode="0")
         self.state_real = self.get_real_state()
         # publish trajectory
         self.traj_pub.publish(self.get_path_msg(self.state_real.pos_traj))
@@ -659,19 +662,25 @@ class Crazyflie:
         self.set_attirate(omega_tar, thrust_tar)
 
         # wait for next time step
-        last_discrete_time = int(self.last_control_time / self.dt)
-        discrete_time = int(self.timeHelper.time() / self.dt)
-        if discrete_time > (last_discrete_time + 1):
-            next_time = (discrete_time + 1) * self.dt
+        if not self.sim:
+            last_discrete_time = int(self.last_control_time / self.dt)
+            discrete_time = int(self.timeHelper.time() / self.dt)
+            if discrete_time > (last_discrete_time + 1):
+                next_time = (discrete_time + 1) * self.dt
+            else:
+                next_time = (last_discrete_time + 1) * self.dt
+            delta_time = next_time - self.last_control_time
+            if delta_time < 1e-3:
+                delta_time = 0.02 # NOTE: this only happens in simulation
+            frequncy = 1.0 / delta_time
+            if frequncy < 49:
+                print(f"frequncy: {frequncy:.2f} Hz")
+            self.last_control_time = next_time
+            while self.timeHelper.time() <= next_time:
+                rclpy.spin_once(self.swarm.allcfs, timeout_sec=0.0)
         else:
-            next_time = (last_discrete_time + 1) * self.dt
-        delta_time = next_time - self.last_control_time + 1e-6
-        frequncy = 1.0 / delta_time
-        if frequncy < 49:
-            print(f"frequncy: {frequncy:.2f} Hz")
-        self.last_control_time = next_time
-        while self.timeHelper.time() <= next_time:
-            rclpy.spin_once(self.swarm.allcfs, timeout_sec=0.0)
+            # NOTE: this is for simulation
+            self.timeHelper.sleepForRate(int(1/self.dt))
 
         # update real-world state
         self.timestep += 1
@@ -698,7 +707,7 @@ class Crazyflie:
         pos = np.array(pos + self.world_center, dtype=np.float64)
         quat = np.array(quat, dtype=np.float64)
         msg.header.frame_id = "world"
-        msg.header.stamp = rclpy.time.Time().to_msg()
+        msg.header.stamp = self.timeHelper.node.get_clock().now().to_msg()
         msg.pose.position.x = pos[0]
         msg.pose.position.y = pos[1]
         msg.pose.position.z = pos[2]
@@ -730,23 +739,23 @@ class Crazyflie:
             self.get_pose_msg(self.state_real.pos_tar, np.array([0.0, 0.0, 0.0, 1, 0]))
         )
 
-
 def main(enable_logging=True, mode="mppi"):  # mode  = mppi covo-online covo-offline nn
-    env = Crazyflie(enable_logging=enable_logging, mode=mode)
+    env = Crazyflie(enable_logging=enable_logging, mode=mode, sim=True)
 
     try:
         state_real = env.state_real
 
         total_steps = env.pos_traj.shape[0] - 1
         for timestep in range(total_steps):
+            print(timestep/total_steps)
             action_pid, env.control_params, control_info = env.controller(
                 None, state_real, env.env_params, None, env.control_params, None
             )
             
-            if timestep == int((4.0-0.1)*50):
-                env.cf.setParam("usd.logging", 1)
-            elif timestep == int((10.0+0.1) * 50):
-                env.cf.setParam("usd.logging", 0)
+            # if timestep == int((4.0-0.1)*50):
+            #     env.cf.setParam("usd.logging", 1)
+            # elif timestep == int((10.0+0.1) * 50):
+            #     env.cf.setParam("usd.logging", 0)
 
             action_applied = action_pid
             obs_real, state_real, reward_real, done_real, info_real = env.step(
@@ -768,7 +777,7 @@ def main(enable_logging=True, mode="mppi"):  # mode  = mppi covo-online covo-off
     except KeyboardInterrupt:
         pass
     finally:
-        env.cf.setParam("usd.logging", 0)
+        # env.cf.setParam("usd.logging", 0)
         data = env.log
         start_step = 6 * 50
         end_step = (6 + 18) * 50

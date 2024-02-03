@@ -40,6 +40,8 @@ robot_types:
       voltage_warning: 3.8  # V
       voltage_critical: 3.7 # V
     # firmware_params:
+      # ctrlRwik:
+      #   m: 0.027
     #   kalman:
     #     pNAcc_xy: 1.0 # default 0.5
     #firmware_logging:
