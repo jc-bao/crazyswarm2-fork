@@ -39,7 +39,7 @@ class Quad3DLite:
         self.default_params = EnvParams3DJax(
             alpha_bodyrate=0.5,
             alpha_thrust=1.0,
-            m=0.0411,
+            m=0.027,
             max_omega=jnp.array([10.0, 10.0, 2.0]),
             max_steps_in_episode=32.5 * 50,
         )
@@ -332,7 +332,7 @@ class EnvParams3D:
     dt: float = 0.02
     g: float = 9.81  # gravity
 
-    m: float = 0.0411  # mass
+    m: float = 0.027  # mass
     m_mean: float = 0.027  # mass
     m_std: float = 0.003  # mass
 
