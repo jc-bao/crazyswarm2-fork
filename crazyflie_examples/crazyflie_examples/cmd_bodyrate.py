@@ -388,7 +388,7 @@ class EnvParams3D:
 class PIDParams:
     Kp: float = 8.0
     Kd: float = 4.0
-    Ki: float = 0.0
+    Ki: float = 6.0
     Kp_att: float = 6.0
 
     integral: np.ndarray = np.array([0.0, 0.0, 0.0])
@@ -540,7 +540,7 @@ class Crazyflie:
         pos, quat = self.get_drone_state()
         self.pos_hist[-1] = pos
         self.quat_hist[-1] = quat
-        self.pos_traj, self.vel_traj, self.acc_traj = generate_traj(pos, self.dt, mode="0")
+        self.pos_traj, self.vel_traj, self.acc_traj = generate_traj(pos, self.dt, mode="xy")
         self.state_real = self.get_real_state()
         # publish trajectory
         self.traj_pub.publish(self.get_path_msg(self.state_real.pos_traj))
